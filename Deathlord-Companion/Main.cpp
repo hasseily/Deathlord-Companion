@@ -510,8 +510,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		KeybQueueKeypress(wParam, ASCII);
 		break;
-	case WM_KEYUP:
-		[[fallthrough]];
+
 	case WM_KEYDOWN:		// Send to the applewin emulator
 		if (shouldSendKeystrokesToAppleWin)
 			KeybQueueKeypress(wParam, NOT_ASCII);
