@@ -511,12 +511,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		KeybQueueKeypress(wParam, ASCII);
 		break;
 	case WM_KEYUP:
-		[[fallthrough]];
+		Keyboard::ProcessMessage(message, wParam, lParam);
+		break;
 	case WM_KEYDOWN:		// Send to the applewin emulator
+		Keyboard::ProcessMessage(message, wParam, lParam);
 		if (shouldSendKeystrokesToAppleWin)
 			KeybQueueKeypress(wParam, NOT_ASCII);
-		Keyboard::ProcessMessage(message, wParam, lParam);
-
 		break;
 
 	case WM_SYSKEYUP:
