@@ -20,6 +20,7 @@
 #include "Emulator/RGBMonitor.h"
 #include "DeathlordHacks.h"
 #include "TilesetCreator.h"
+#include "InvOverlay.h"
 // For WinPixGpuCapture
 #include <filesystem>
 #include <shlobj.h>
@@ -168,7 +169,7 @@ void UpdateMenuBarStatus(HWND hwnd)
 		HA::AlertIfError(hwnd);
 	CheckMenuRadioItem(videoMenu, 0, 3, g_nonVolatile.video, MF_BYPOSITION);
 	CheckMenuRadioItem(volumeMenu, 0, 4, g_nonVolatile.volumeSpeaker, MF_BYPOSITION);
-	CheckMenuRadioItem(autoMapMenu, 2, 6, (int)g_nonVolatile.mapQuadrant+2, MF_BYPOSITION);
+	CheckMenuRadioItem(autoMapMenu, 5, 9, (int)g_nonVolatile.mapQuadrant+2, MF_BYPOSITION);
 
 	CheckMenuItem(emuMenu, ID_EMULATOR_GAMELINK,
 		MF_BYCOMMAND | (g_nonVolatile.useGameLink ? MF_CHECKED : MF_UNCHECKED));
@@ -176,6 +177,12 @@ void UpdateMenuBarStatus(HWND hwnd)
 		MF_BYCOMMAND | (g_nonVolatile.scanlines ? MF_CHECKED : MF_UNCHECKED));
 	CheckMenuItem(autoMapMenu, ID_AUTOMAP_SHOWMAP,
 		MF_BYCOMMAND | (g_nonVolatile.showMap ? MF_CHECKED : MF_UNCHECKED));
+	CheckMenuItem(autoMapMenu, ID_AUTOMAP_SHOWFOG,
+		MF_BYCOMMAND | (g_nonVolatile.showFog ? MF_CHECKED : MF_UNCHECKED));
+	CheckMenuItem(autoMapMenu, ID_AUTOMAP_SHOWFOOTSTEPS,
+		MF_BYCOMMAND | (g_nonVolatile.showFootsteps ? MF_CHECKED : MF_UNCHECKED));
+	CheckMenuItem(autoMapMenu, ID_AUTOMAP_SHOWHIDDEN,
+		MF_BYCOMMAND | (g_nonVolatile.showHidden ? MF_CHECKED : MF_UNCHECKED));
 	CheckMenuItem(cmpMenu, ID_COMPANION_SPELLWINDOW,
 		MF_BYCOMMAND | (g_nonVolatile.showSpells ? MF_CHECKED : MF_UNCHECKED));
 	CheckMenuItem(logMenu, ID_LOGWINDOW_ALSOLOGCOMBAT,
@@ -277,16 +284,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			g_spellW = std::make_unique<SpellWindow>(g_hInstance, hwnd);
 			g_dlHacks = std::make_unique<DeathlordHacks>(g_hInstance, hwnd);
 
-			// Game has now loaded the saved/default settings
-			// Update the menu bar with the settings
-			UpdateMenuBarStatus(hwnd);
-
 			// Autoload the last used profile
 			g_game->ActivateLastUsedProfile();
 
 			// And open the spells window if necessary
 			if (g_nonVolatile.showSpells)
 				g_game->MenuShowSpellWindow();
+
+			// Game has now loaded the saved/default settings
+			// Update the menu bar with the settings
+			UpdateMenuBarStatus(hwnd);
 		}
 
 		// Main message loop
@@ -502,10 +509,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		KeybQueueKeypress(wParam, ASCII);
 		break;
+	case WM_KEYUP:
+		[[fallthrough]];
 	case WM_KEYDOWN:		// Send to the applewin emulator
+/*
+		if (g_isInGameMap)	// Allow for arrow keys when on the game map
+			// TODO: DISABLED because selecting items in shops for example necessitates arrow keys
+		{
+			switch (wParam)
+			{
+			case VK_LEFT:
+				KeybQueueKeypress('j', ASCII);
+				break;
+			case VK_RIGHT:
+				KeybQueueKeypress('k', ASCII);
+				break;
+			case VK_UP:
+				KeybQueueKeypress('i', ASCII);
+				break;
+			case VK_DOWN:
+				KeybQueueKeypress('m', ASCII);
+				break;
+			default:
+				KeybQueueKeypress(wParam, NOT_ASCII);
+				break;
+			}
+		}
+		else {
+			KeybQueueKeypress(wParam, NOT_ASCII);
+		}
+		*/
 		Keyboard::ProcessMessage(message, wParam, lParam);
 		if (shouldSendKeystrokesToAppleWin)
 			KeybQueueKeypress(wParam, NOT_ASCII);
+
 		break;
 
 	case WM_SYSKEYUP:
@@ -817,6 +854,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			UpdateMenuBarStatus(hWnd);
 			game->SetWindowSizeOnChangedProfile();
 			break;
+		case ID_AUTOMAP_SHOWFOG:
+			g_nonVolatile.showFog = !g_nonVolatile.showFog;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_AUTOMAP_SHOWFOOTSTEPS:
+			g_nonVolatile.showFootsteps = !g_nonVolatile.showFootsteps;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_AUTOMAP_SHOWHIDDEN:
+			g_nonVolatile.showHidden = !g_nonVolatile.showHidden;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
 		case ID_AUTOMAP_DISPLAYFULL:
 			g_nonVolatile.mapQuadrant = AutoMapQuandrant::All;
 			UpdateMenuBarStatus(hWnd);
@@ -836,6 +888,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case ID_AUTOMAP_DISPLAYBOTTOMRIGHTQUADRANT:
 			g_nonVolatile.mapQuadrant = AutoMapQuandrant::BottomRight;
 			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_AUTOMAP_ERASE:
+			if (MessageBox(HWND_TOP, TEXT("Are you sure you want to erase all knowledge of this map?\nFootsteps and seen tiles will be forgotten.\n"), TEXT("Erase Map Knowledge"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
+			{
+				auto _aM = AutoMap::GetInstance();
+				_aM->ClearMapArea();
+			}
 			break;
 		case ID_COMPANION_SPELLWINDOW:
 		{
