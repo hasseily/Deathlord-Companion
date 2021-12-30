@@ -510,7 +510,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		KeybQueueKeypress(wParam, ASCII);
 		break;
 	case WM_KEYUP:
-		[[fallthrough]];
+		Keyboard::ProcessMessage(message, wParam, lParam);
+		break;
 	case WM_KEYDOWN:		// Send to the applewin emulator
 /*
 		if (g_isInGameMap)	// Allow for arrow keys when on the game map
